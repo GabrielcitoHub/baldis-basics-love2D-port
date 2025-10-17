@@ -1,0 +1,26 @@
+# File produced by Open Asset Import Library (http://www.assimp.sf.net)
+# (assimp v5.2.0)
+
+mtllib amogus_fixed.mtl
+
+# 4 vertex positions
+v 0.5 1 -6.49977849e-10
+v -0.5 1 -6.49977627e-10
+v -0.5 1.05367119e-08 6.49977849e-10
+v 0.5 -1.05367119e-08 6.49977627e-10
+
+# 4 UV coordinates
+vt 1 0 0
+vt 1 1 0
+vt 0 1 0
+vt 0 0 0
+
+# 1 vertex normals
+vn 2.49439133e-16 1.29995548e-09 1
+
+# Mesh 'plane' with 2 faces
+g plane
+usemtl m_ce6a5f60-d087-7e70-266c-5c95a8aab1b2
+f  1/1/1 2/2/1 3/3/1
+f  1/1/1 3/3/1 4/4/1
+
