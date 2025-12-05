@@ -28,8 +28,34 @@ function self:getMapByID(id)
     return self.maps[id]
 end
 
+function self:getDefaultMapID()
+    return self.defaultMap.id
+end
+
+function self:clearMapObjects(id)
+    if not id then id = self:getDefaultMapID() end
+    local map = self:getMapByID(id)
+    if not map then return end
+    for i,_ in pairs(map.floors) do
+        map.floors[i] = nil
+    end
+    for i,_ in pairs(map.walls) do
+        map.walls[i] = nil
+    end
+    for i,_ in pairs(map.cellings) do
+        map.cellings[i] = nil
+    end
+    for i,_ in pairs(map.objects) do
+        map.objects[i] = nil
+    end
+end
+
 function self:newMap(id, mapid)
     id = id or ("world" .. (#self.maps + 1))
+    local map = self:getMapByID(id)
+    if map then
+        self:clearMapObjects(map)
+    end
     mapid = mapid or id
     local map = {
         id = id,
@@ -37,10 +63,50 @@ function self:newMap(id, mapid)
         mapid = mapid,
         walls = {},
         floors = {},
-        objects = {}
+        cellings = {},
+        objects = {},
+        sObjects = {}
     }
+    self.defaultMap = map
     self.maps[id] = map
+    
     return map
+end
+
+function self:getWallRotation(layer, x, y)
+    local directions = {
+        {dx = 0, dy = -1, rot = 0},            -- North
+        {dx = 0, dy = 1,  rot = 5},      -- South
+        {dx = -1, dy = 0, rot = 10},   -- West
+        {dx = 1,  dy = 0, rot = 15},    -- East
+    }
+
+    local MAX_LOOKUP = 5 -- how far to search for air
+
+    -- Find nearest air direction
+    local bestDir = nil
+    for _, dir in ipairs(directions) do
+        for step = 1, MAX_LOOKUP do
+            local nx = x + dir.dx * step
+            local ny = y + dir.dy * step
+
+            if nx < 1 or nx > layer.width or ny < 1 or ny > layer.height then
+                break
+            end
+
+            -- print(step .. " ny: " .. ny .. " nx: " .. nx)
+            local neighbor = layer.data[ny][nx]
+            if not neighbor or neighbor.id < 0 then
+                bestDir = dir
+                -- print("bestDir = dx: " .. bestDir.dx .. " dy: " .. bestDir.dy .. " rot: " .. bestDir.rot)
+                break
+            end
+        end
+        if bestDir then break end
+    end
+
+    bestDir = bestDir or directions[1] -- fallback
+    return bestDir
 end
 
 -- =========================================================
@@ -58,28 +124,27 @@ function self:loadMap(id)
 
     -- Parse tile data into floors/walls/etc.
     for _, layer in ipairs(stiMap.layers) do
-        print(layer.type .. " / ".. layer.name)
+        -- print(layer.type .. " / ".. layer.name)
         if layer.type == "tilelayer" then
             -- Example: use layer names to decide what to spawn
             if layer.name == "Floor" then
                 for y = 1, layer.height do
                     for x = 1, layer.width do
                         local tile = layer.data[y][x]
-                        if tile and tile.id ~= 0 then
+                        if tile and tile.id then
                             -- Convert tile grid coordinates into world space
                             local wx = (x - 1) * stiMap.tilewidth
                             local wy = (y - 1) * stiMap.tileheight
-                            print("tile position = " .. wx .. "," .. wy)
 
                             -- Create your 3D floor object
                             local floor = TDObjects:new(
                                 "assets/3D/amogus_fixed.obj",                -- model
                                 "assets/images/floors/floor.png",            -- texture
-                                {wx, 0, wy},                                  -- world position (x = east-west, y = height, z = north-south)
+                                {wx, wy, 0},                                  -- world position (x = east-west, y = height, z = north-south)
                                 {0,0,0},
                                 1 * stiMap.tilewidth
                             )
-                            floor.data.mode = "gui"
+                            floor.collider:compress()
 
                             -- Store for later drawing/updating
                             table.insert(map.floors, floor)
@@ -90,41 +155,65 @@ function self:loadMap(id)
                 for y = 1, layer.height do
                     for x = 1, layer.width do
                         local tile = layer.data[y][x]
-                        if tile and tile.id ~= 0 then
+                        if tile and tile.id then
                             local wx = (x - 1) * stiMap.tilewidth
                             local wy = (y - 1) * stiMap.tileheight
-                            print("tile position = " .. wx .. "," .. wy)
+                            -- print(x .. " " .. wx)
+                            -- print(y .. " " .. wy)
 
-                            -- Create a wall object (facing forward for now)
+                            local bestDir = self:getWallRotation(layer, x, y)
+
+                            -- Spawn the wall with correct rotation
                             local wall = TDObjects:new(
                                 "assets/3D/amogus_fixed.obj",
                                 "assets/images/walls/wall.png",
-                                {wx, 0, wy},
-                                {45,0,0},
+                                {wx, wy, 0},       -- position
+                                {0, bestDir.rot, 0},         -- any extra args you need
                                 1 * stiMap.tilewidth
                             )
-
-                            wall.data.mode = "gui"
+                            wall.collider:compress()
 
                             table.insert(map.walls, wall)
                         end
                     end
                 end
+            elseif layer.name == "Ceilling" then
+                for y = 1, layer.height do
+                    for x = 1, layer.width do
+                        local tile = layer.data[y][x]
+                        if tile and tile.id then
+                            local wx = (x - 1) * stiMap.tilewidth
+                            local wy = (y - 1) * stiMap.tileheight
+
+                            -- Create a wall object (facing forward for now)
+                            local celling = TDObjects:new(
+                                "assets/3D/amogus_fixed.obj",
+                                "assets/images/ceilings/ceiling.png",
+                                {wx, wy, 30},
+                                {0,0,0},
+                                1 * stiMap.tilewidth
+                            )
+                            celling.collider:compress()
+
+                            table.insert(map.cellings, celling)
+                        end
+                    end
+                end
             end
         elseif layer.type == "objectgroup" then
-            for _, obj in ipairs(layer.objects) do
-                if obj.name == "spawn" then
-                    g3d.camera.position[1] = obj.x
-                    g3d.camera.position[3] = obj.y
+            for i, obj in ipairs(layer.objects) do
+                local rObjN = obj.name
+                local sPath = "assets/scripts/map/objects/" .. rObjN
+                package.loaded[sPath] = nil
+                local sObj = require(sPath)
+                function sObj:remove()
+                    map.sObjects[i] = nil
                 end
-                table.insert(map.objects, {
-                    name = obj.name,
-                    x = obj.x,
-                    y = obj.y,
-                    width = obj.width,
-                    height = obj.height,
-                    properties = obj.properties or {}
-                })
+                table.insert(map.sObjects, sObj)
+                local object = sObj:load(obj, stiMap)
+                if object then
+                    table.insert(map.objects, object)
+                end
             end
         end
     end
@@ -147,13 +236,30 @@ function self:forLoadedMaps(func)
     end
 end
 
+function self:mousepressed(x, y, button)
+    self:forLoadedMaps(function(map)
+        if map.sObjects then
+            for _, obj in pairs(map.sObjects) do
+                if obj.mousepressed then
+                    obj:mousepressed(x, y, button)
+                end
+                if obj.onInteract then
+                    obj:onInteract(button)
+                end
+            end
+        end
+    end)
+end
+
 function self:update(dt)
     self:forLoadedMaps(function(map)
-        if map.sti then
-            map.sti:update(dt)
-        end
         if map.objects then
             for _, obj in pairs(map.objects) do
+                obj:update(dt)
+            end
+        end
+        if map.sObjects then
+            for _, obj in pairs(map.sObjects) do
                 if obj.update then
                     obj:update(dt)
                 end
@@ -162,27 +268,87 @@ function self:update(dt)
     end)
 end
 
+local function isInFrontOfCamera(obj)
+    local camera = g3d.camera
+    local camX = camera.position[1]
+    local camY = camera.position[2]
+    local camZ = camera.position[3]
+
+    local dirX = camera.target[1] - camX
+    local dirY = camera.target[2] - camY
+    local dirZ = camera.target[3] - camZ
+
+    -- normalize forward vector? not required for just sign check
+
+    obj.x = obj.data.position[1]
+    obj.z = obj.data.position[3]
+
+    local toObjX = obj.x - camX
+    local toObjZ = obj.z - camZ  -- ignoring Y height
+
+    -- 2D dot product
+    local dot = (dirX * toObjX) + (dirZ * toObjZ)
+
+    return true or dot > 0
+end
+
 function self:draw()
     self:forLoadedMaps(function(map)
-        -- Optional: draw STI background
-        if map.sti then
-            map.sti:draw()
-        end
+        local camera = g3d.camera
+        local maxDist = camera.farClip * camera.farClip
 
         -- Draw floors/walls if you’re using 3D models instead of STI tiles
+        local camera = {
+            x = g3d.camera.position[1],
+            z = g3d.camera.position[3]
+        }
         if map.floors then
             for _, floor in pairs(map.floors) do
-                if floor.draw then
-                    floor:draw()
+                if isInFrontOfCamera(floor) then
+                    local dx = floor.data.position[1] - camera.x
+                    local dz = floor.data.position[3] - camera.z
+                    local distSq = dx*dx + dz*dz
+
+                    if distSq < maxDist then
+                        floor:draw()
+                    end
                 end
             end
         end
 
         if map.walls then
+            -- Walls
             for _, wall in pairs(map.walls) do
-                if wall.draw then
-                    wall:draw()
+                if isInFrontOfCamera(wall) then
+                    local dx = wall.data.position[1] - camera.x
+                    local dz = wall.data.position[3] - camera.z
+                    local distSq = dx*dx + dz*dz
+
+                    if distSq < maxDist then
+                        wall:draw()
+                    end
                 end
+            end
+        end
+
+        if map.cellings then
+            -- Cellings
+            for _, celling in pairs(map.cellings) do
+                if isInFrontOfCamera(celling) then
+                    local dx = celling.data.position[1] - camera.x
+                    local dz = celling.data.position[3] - camera.z
+                    local distSq = dx*dx + dz*dz
+
+                    if distSq < maxDist then
+                        celling:draw()
+                    end
+                end
+            end
+        end
+
+        if map.objects then
+            for _, obj in pairs(map.objects) do
+                obj:draw()
             end
         end
     end)

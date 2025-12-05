@@ -7,8 +7,8 @@ function self:loadG3D(g3d)
 end
 
 function self:new(mesh, texture, translation, rotation, scale)
-    print(mesh)
-    print(texture)
+    -- print(mesh)
+    -- print(texture)
     translation = translation or {}
     rotation = rotation or {}
     scale = scale or nil
@@ -26,6 +26,12 @@ function self:new(mesh, texture, translation, rotation, scale)
     }, self)
 
     return object
+end
+
+function self:remove()
+    self.collider = nil
+    self.data = nil
+    self = nil
 end
 
 local function lookAtRotation(from, to)
@@ -47,6 +53,7 @@ local function lookAtRotation(from, to)
 end
 
 function self:update(dt)
+    if not self.data then return end
     local pos = self.data.position
     local cameraPos = self.g3d.camera.position
     local scale = self.data.s
@@ -56,6 +63,7 @@ function self:update(dt)
         self.data.r = lookAtRotation(pos, cameraPos)
     end
 
+    if not self.collider then return end
     self.collider:setTransform(pos, self.data.r, scale)
 end
 
@@ -63,7 +71,26 @@ function self:mousepressed(x, y, button)
 end
 
 function self:draw()
+    if not self.collider then return end
     self.collider:draw()
+end
+
+-- Utils
+function self:setMode(mode)
+    self.data.mode = mode
+end
+
+function self:setPosition(x, y, z)
+    if not self.data then return end
+    if x then
+        self.data.position[1] = x
+    end
+    if y then
+        self.data.position[2] = y
+    end
+    if z then
+        self.data.position[3] = z
+    end
 end
 
 return self

@@ -9,6 +9,7 @@ amogus.data.mode = "gui"
 local background = TDObjects:new("assets/3D/sky_fixed.obj", "assets/3D/sky.png", nil, nil, 500)
 local moon = TDObjects:new("assets/3D/sphere.obj", "assets/3D/moon.png", {4,5,0}, nil, 0.5)
 mapLoader:newMap("school","schoolhouse")
+mapLoader:newMap("test","testplace")
 
 local function updateSkybox()
     local camPos = {}
@@ -24,7 +25,8 @@ local cameraHUDRot = {}
 
 function self:load()
     SoundManager:stopAll()
-    mapLoader:loadMap("school")
+    mapLoader:loadMap("test")
+    -- mapLoader:loadMap("test")
     SoundManager:playMusic("school", "wav")
     g3d.camera.firstPersonLook(0,0)
 end
@@ -32,6 +34,7 @@ end
 function self:keypressed(key)
     itemslot:keypressed(key)
     if key == "escape" then
+        mapLoader:clearMapObjects()
         SoundManager:stopAll()
         stateManager:loadState("warning")
     end
@@ -44,6 +47,13 @@ end
 
 function self:mousepressed(x, y, button)
     g3d.camera.firstPersonLook(0,0)
+    mapLoader:mousepressed(x, y, button)
+end
+
+function self:regainStamina(dt, staminabar, tireness, moving)
+    if staminabar.stamina < staminabar.maxstamina and not moving then
+        staminabar.stamina = staminabar.stamina + tireness * dt
+    end
 end
 
 function self:update(dt)
@@ -72,9 +82,9 @@ function self:update(dt)
         end
     end
 
+    self:regainStamina(dt, staminabar, tireness, moving)
     if not running then
         if staminabar.stamina < staminabar.maxstamina and not moving then
-            staminabar.stamina = staminabar.stamina + tireness * dt
             g3d.camera.speed = speeds.walk
         else
             g3d.camera.speed = speeds.walk
@@ -96,7 +106,7 @@ function self:draw()
     amogus:draw()
     earth:draw()
     moon:draw()
-    background:draw()
+    --background:draw()
     
     itemslot:draw()
     staminabar:draw()
