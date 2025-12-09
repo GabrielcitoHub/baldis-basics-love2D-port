@@ -24,15 +24,17 @@ SoundManager:setFolder("sounds", "assets/sounds")
 SoundManager:setFolder("music", "assets/music")
 
 local itemslots = require "libs/itemslots"
-_G.itemslot = itemslots:new()
-
 local staminabars = require "libs/staminabar"
-_G.staminabar = staminabars:new()
-
 local notebooksManager = require "libs/notebooks"
-_G.notebooks = notebooksManager:new()
+
 
 _G.mapLoader = require "libs/mapLoader"
+
+local function createitems()
+    _G.itemslot = itemslots:new()
+    _G.staminabar = staminabars:new()
+    _G.notebooks = notebooksManager:new()
+end
 
 function love.load()
     love.graphics.setDefaultFilter("nearest", "nearest")
@@ -40,6 +42,7 @@ function love.load()
     love.graphics.setFont(font)
     local handCursor = love.mouse.newCursor("assets/images/cursor.png", 0, 0)
     love.mouse.setCursor(handCursor)
+    createitems()
 
     stateManager:loadState("level")
 end
@@ -49,6 +52,10 @@ function love.update(dt)
 end
 
 function love.keypressed(key)
+    if key == "f11" then
+        love.window.setFullscreen(not love.window.getFullscreen())
+        createitems()
+    end
     stateManager:keypressed(key)
 end
 

@@ -37,16 +37,19 @@ function self:clearMapObjects(id)
     local map = self:getMapByID(id)
     if not map then return end
     for i,_ in pairs(map.floors) do
-        map.floors[i] = nil
+        map.floors[i]:remove()
     end
     for i,_ in pairs(map.walls) do
-        map.walls[i] = nil
+        map.walls[i]:remove()
     end
     for i,_ in pairs(map.cellings) do
-        map.cellings[i] = nil
+        map.cellings[i]:remove()
     end
     for i,_ in pairs(map.objects) do
-        map.objects[i] = nil
+        map.objects[i]:remove()
+    end
+    for i,_ in pairs(map.sObjects) do
+        map.sObjects[i] = nil
     end
 end
 
@@ -236,39 +239,46 @@ function self:forLoadedMaps(func)
     end
 end
 
+function self:forTable(table, func)
+    if table then
+        for _,value in pairs(table) do
+            func(value)
+        end
+    end
+end
+
 function self:mousepressed(x, y, button)
     self:forLoadedMaps(function(map)
-        if map.sObjects then
-            for _, obj in pairs(map.sObjects) do
-                if obj.mousepressed then
-                    obj:mousepressed(x, y, button)
-                end
-                if obj.onInteract then
-                    obj:onInteract(button)
-                end
+        -- Trigger object script functions
+        self:forTable(map.sObjects, function(obj)
+            if obj.mousepressed then
+                obj:mousepressed(x, y, button)
             end
-        end
+            if obj.onInteract then
+                obj:onInteract(button)
+            end
+        end)
     end)
 end
 
 function self:update(dt)
     self:forLoadedMaps(function(map)
-        if map.objects then
-            for _, obj in pairs(map.objects) do
+        -- Update object models
+        self:forTable(map.objects, function(obj)
+            obj:update(dt)
+        end)
+        -- Update object script
+        self:forTable(map.sObjects, function(obj)
+            if obj.update then
                 obj:update(dt)
             end
-        end
-        if map.sObjects then
-            for _, obj in pairs(map.sObjects) do
-                if obj.update then
-                    obj:update(dt)
-                end
-            end
-        end
+        end)
     end)
 end
 
 local function isInFrontOfCamera(obj)
+    if not obj then return end
+    if not obj.data then return end
     local camera = g3d.camera
     local camX = camera.position[1]
     local camY = camera.position[2]
@@ -302,55 +312,46 @@ function self:draw()
             x = g3d.camera.position[1],
             z = g3d.camera.position[3]
         }
-        if map.floors then
-            for _, floor in pairs(map.floors) do
-                if isInFrontOfCamera(floor) then
-                    local dx = floor.data.position[1] - camera.x
-                    local dz = floor.data.position[3] - camera.z
-                    local distSq = dx*dx + dz*dz
+        -- Draw floors
+        self:forTable(map.floors, function(floor)
+            if isInFrontOfCamera(floor) then
+                local dx = floor.data.position[1] - camera.x
+                local dz = floor.data.position[3] - camera.z
+                local distSq = dx*dx + dz*dz
 
-                    if distSq < maxDist then
-                        floor:draw()
-                    end
+                if distSq < maxDist then
+                    floor:draw()
                 end
             end
-        end
+        end)
+        -- Draw walls
+        self:forTable(map.walls, function(wall)
+            if isInFrontOfCamera(wall) then
+                local dx = wall.data.position[1] - camera.x
+                local dz = wall.data.position[3] - camera.z
+                local distSq = dx*dx + dz*dz
 
-        if map.walls then
-            -- Walls
-            for _, wall in pairs(map.walls) do
-                if isInFrontOfCamera(wall) then
-                    local dx = wall.data.position[1] - camera.x
-                    local dz = wall.data.position[3] - camera.z
-                    local distSq = dx*dx + dz*dz
-
-                    if distSq < maxDist then
-                        wall:draw()
-                    end
+                if distSq < maxDist then
+                    wall:draw()
                 end
             end
-        end
+        end)
+        -- Draw ceilling
+        self:forTable(map.cellings, function(celling)
+            if isInFrontOfCamera(celling) then
+                local dx = celling.data.position[1] - camera.x
+                local dz = celling.data.position[3] - camera.z
+                local distSq = dx*dx + dz*dz
 
-        if map.cellings then
-            -- Cellings
-            for _, celling in pairs(map.cellings) do
-                if isInFrontOfCamera(celling) then
-                    local dx = celling.data.position[1] - camera.x
-                    local dz = celling.data.position[3] - camera.z
-                    local distSq = dx*dx + dz*dz
-
-                    if distSq < maxDist then
-                        celling:draw()
-                    end
+                if distSq < maxDist then
+                    celling:draw()
                 end
             end
-        end
-
-        if map.objects then
-            for _, obj in pairs(map.objects) do
-                obj:draw()
-            end
-        end
+        end)
+        -- Draw objects
+        self:forTable(map.objects, function(obj)
+            obj:draw()
+        end)
     end)
 end
 

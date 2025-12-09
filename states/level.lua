@@ -8,8 +8,8 @@ local amogus = TDObjects:new("assets/3D/amogus_fixed.obj", "assets/3D/amogus.png
 amogus.data.mode = "gui"
 local background = TDObjects:new("assets/3D/sky_fixed.obj", "assets/3D/sky.png", nil, nil, 500)
 local moon = TDObjects:new("assets/3D/sphere.obj", "assets/3D/moon.png", {4,5,0}, nil, 0.5)
-mapLoader:newMap("school","schoolhouse")
-mapLoader:newMap("test","testplace")
+-- mapLoader:newMap("school","schoolhouse")
+-- mapLoader:newMap("test","testplace")
 
 local function updateSkybox()
     local camPos = {}
@@ -21,11 +21,11 @@ local function updateSkybox()
 end
 
 local timer = 0
-local cameraHUDRot = {}
+-- local cameraHUDRot = {}
 
 function self:load()
     SoundManager:stopAll()
-    mapLoader:loadMap("test")
+    mapLoader:loadMap("testplace")
     -- mapLoader:loadMap("test")
     SoundManager:playMusic("school", "wav")
     g3d.camera.firstPersonLook(0,0)

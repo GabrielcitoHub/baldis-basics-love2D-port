@@ -34,12 +34,13 @@ function self:new(extra)
 end
 
 function self:draw()
-    local scale = 3
-    local offset = 8 * scale
+    local wscale = (love.graphics:getWidth() / love.graphics:getHeight())
+    local scale = 3 * wscale
+    local offset = 4 * scale
     local back, front = self.staminabar.sprites.back, self.staminabar.sprites.front
     local width, height = back:getDimensions()
 
-    local x = offset / 4
+    local x = 0 + offset
     local y = love.graphics.getHeight() - back:getHeight() * scale - offset
 
     -- Draw background (full width)
